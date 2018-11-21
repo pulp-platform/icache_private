@@ -5,7 +5,7 @@ module icache_controller_private
 #(
    parameter FETCH_ADDR_WIDTH = 32,
    parameter FETCH_DATA_WIDTH = 32,
-   
+
    parameter NB_WAYS         = 4,
    parameter CACHE_LINE      = 4,
 
@@ -49,17 +49,17 @@ module icache_controller_private
 
    // interface with READ PORT --> SCM DATA
    output logic [NB_WAYS-1:0]                               DATA_req_o,
-   output logic                                             DATA_we_o,   
+   output logic                                             DATA_we_o,
    output logic [SCM_DATA_ADDR_WIDTH-1:0]                   DATA_addr_o,
    input  logic [NB_WAYS-1:0][SCM_DATA_WIDTH-1:0]           DATA_rdata_i,
-   output logic [AXI_DATA-1:0]                              DATA_wdata_o,
+   output logic [FETCH_DATA_WIDTH-1:0]                      DATA_wdata_o,
 
    // interface with READ PORT --> SCM TAG
-   output logic [NB_WAYS-1:0]                               TAG_req_o,   
+   output logic [NB_WAYS-1:0]                               TAG_req_o,
    output logic [SCM_TAG_ADDR_WIDTH-1:0]                    TAG_addr_o,
    input  logic [NB_WAYS-1:0][SCM_TAG_WIDTH-1:0]            TAG_rdata_i,
    output logic [SCM_TAG_WIDTH-1:0]                         TAG_wdata_o,
-   output logic                                             TAG_we_o, 
+   output logic                                             TAG_we_o,
 
 
 
@@ -68,7 +68,7 @@ module icache_controller_private
    input  logic                                             axi_ar_ready_i,
    output logic [AXI_ADDR-1:0]                              axi_ar_addr_o,
    output logic [7:0]                                       axi_ar_len_o,
-     
+
    input  logic                                             axi_r_valid_i,
    output logic                                             axi_r_ready_o,
    input  logic [AXI_DATA-1:0]                              axi_r_data_i,
@@ -101,7 +101,6 @@ module icache_controller_private
    logic [NB_WAYS-1:0]                    way_valid;
    logic [NB_WAYS-1:0]                    way_match_bin;
 
-   logic [NB_WAYS-1:0]                    way_match_Q;
    logic [NB_WAYS-1:0]                    way_valid_Q;
 
    logic [NB_WAYS-1:0]                    random_way;
@@ -111,13 +110,45 @@ module icache_controller_private
    logic [$clog2(NB_WAYS)-1:0]            HIT_WAY;
    logic                                  pending_trans_dis_cache;
 
-   logic [`log2_non_zero((CACHE_LINE*FETCH_DATA_WIDTH)/AXI_DATA-1)-1:0]     CounterChunck_NS, CounterChunck_CS;
-
-   logic [AXI_DATA/FETCH_DATA_WIDTH-1:0][FETCH_DATA_WIDTH-1:0]    axi_r_data_int;
+   logic [FETCH_DATA_WIDTH-1:0]    axi_r_data_int;
+   logic [AXI_DATA-1:0]            axi_r_data_i_delay;
 
    assign first_available_way_OH = 1 << first_available_way;
-   assign axi_r_data_int = axi_r_data_i;
 
+   // Wait two 64 bits to combine 128 data//
+   always_comb
+     begin
+        case(FETCH_DATA_WIDTH)
+          32:
+            begin
+               axi_r_data_int = axi_r_data_i[fetch_addr_Q[2]];
+            end
+          64:
+            begin
+               axi_r_data_int = axi_r_data_i;
+            end
+          128:
+            begin
+                 begin
+                    axi_r_data_int[127:64] = axi_r_data_i;
+                    axi_r_data_int[63:0] = axi_r_data_i_delay;
+                 end
+            end
+        endcase
+     end // always_comb
+
+   always_ff @(posedge clk, negedge rst_n)
+   begin
+      if(~rst_n)
+      begin
+         axi_r_data_i_delay <= '0;
+      end
+      else
+        begin
+           if(axi_r_valid_i & axi_r_ready_o)
+             axi_r_data_i_delay <= axi_r_data_i;
+        end
+   end
 
    enum logic [2:0] { DISABLED_ICACHE, WAIT_REFILL_DONE, OPERATIVE, REQ_REFILL , WAIT_PENDING_TRANS, FLUSH_ICACHE, FLUSH_SET_ID } CS, NS;
 
@@ -126,53 +157,40 @@ module icache_controller_private
 
    logic      update_lfsr;
 
-   logic fetch_rel_chunk;
-   logic fifo_rel_chunk_gnt;
-
-
 
    logic [NB_WAYS-1:0]                               fetch_way_int;
-`ifdef USE_REQ_BUFFER
-   logic [FETCH_ADDR_WIDTH+NB_WAYS:0]                s_data_in;
-   logic [FETCH_ADDR_WIDTH+NB_WAYS:0]                s_data_out;
-`endif
 
-   logic deliver_chunk;
-
-   always_ff @(posedge clk, negedge rst_n) 
+   always_ff @(posedge clk, negedge rst_n)
    begin
-      if(~rst_n) 
+      if(~rst_n)
       begin
           CS                       <= DISABLED_ICACHE;
           fetch_addr_Q             <= '0;
           fetch_req_Q              <= 1'b0;
 
-          way_match_Q              <= '0;
           way_valid_Q              <= '0;
 
           fetch_way_Q              <= '0;
 
           pending_trans_dis_cache  <= '0;
-          CounterChunck_CS         <= '0;
           counter_FLUSH_CS         <= '0;
-      
+
           ctrl_hit_count_icache_o   <= '0;
           ctrl_trans_count_icache_o <= '0;
           ctrl_miss_count_icache_o  <= '0;
-      end 
+      end
       else  // else
       begin
           CS <= NS;
-          CounterChunck_CS         <= CounterChunck_NS;
           counter_FLUSH_CS         <= counter_FLUSH_NS;
-          
+
           if(save_fetch_way)
             fetch_way_Q              <= fetch_way_int;
-   
+
           if(ctrl_clear_regs_icache_i)
           begin
               ctrl_hit_count_icache_o   <= '0;
-              ctrl_trans_count_icache_o <= '0;  
+              ctrl_trans_count_icache_o <= '0;
               ctrl_miss_count_icache_o  <= '0;
           end
           else
@@ -195,7 +213,7 @@ module icache_controller_private
             case({(axi_ar_valid_o & axi_ar_ready_i), (axi_r_last_i & axi_r_valid_i & axi_r_ready_o)})
             2'b00: begin pending_trans_dis_cache <= pending_trans_dis_cache; end
             2'b10: begin pending_trans_dis_cache <= 1'b1; end
-            2'b01: begin pending_trans_dis_cache <= 1'b0; end  
+            2'b01: begin pending_trans_dis_cache <= 1'b0; end
             2'b11: begin pending_trans_dis_cache <= 1'b1; end
             endcase // {(axi_ar_valid_o & axi_ar_ready_i), (axi_r_last_i & axi_r_valid_i & axi_r_ready_o)}
           end
@@ -207,7 +225,6 @@ module icache_controller_private
 
           if(save_pipe_status)
           begin
-            way_match_Q <= way_match;
             way_valid_Q <= way_valid;
           end
 
@@ -225,9 +242,6 @@ module icache_controller_private
       end
    end
 
-
-
-
 // --------------------- //
 // TAG CHECK MULTI WAY   //
 // --------------------- //
@@ -240,39 +254,12 @@ generate
       assign way_valid[k]  = (TAG_rdata_i[k][SCM_TAG_WIDTH-1] == 1'b1);
    end
 
-
-
-   case( (CACHE_LINE*FETCH_DATA_WIDTH)/AXI_DATA  )
-      1:
-      begin
-            assign DATA_addr_o  = (CS == WAIT_REFILL_DONE) ? {fetch_addr_Q[SET_ID_MSB:SET_ID_LSB], 1'b0}  :  {fetch_addr_i[SET_ID_MSB:$clog2(FETCH_DATA_WIDTH)-3]};
-            assign deliver_chunk = 1'b1;
-      end
-
-      2:
-      begin
-            assign deliver_chunk = (CounterChunck_CS == fetch_addr_Q[$clog2(AXI_DATA)-3]);
-            assign DATA_addr_o  = (CS == WAIT_REFILL_DONE) ? {fetch_addr_Q[SET_ID_MSB:SET_ID_LSB], CounterChunck_CS, 1'b0}  :  {fetch_addr_i[SET_ID_MSB:$clog2(FETCH_DATA_WIDTH)-3]};
-      end
-
-      default:
-      begin
-            assign deliver_chunk = (CounterChunck_CS == fetch_addr_Q[$clog2((CACHE_LINE*FETCH_DATA_WIDTH)/AXI_DATA)+$clog2(AXI_DATA)-4:$clog2(AXI_DATA)-3]);
-            assign DATA_addr_o  = (CS == WAIT_REFILL_DONE) ? {fetch_addr_Q[SET_ID_MSB:SET_ID_LSB], CounterChunck_CS, 1'b0}  :  {fetch_addr_i[SET_ID_MSB:$clog2(FETCH_DATA_WIDTH)-3]};
-      end
-   endcase // (CACHE_LINE*FETCH_DATA_WIDTH)/AXI_DATA
-
-
-
-   assign DATA_wdata_o       = axi_r_data_i;
-
-   assign cache_is_bypassed_o  = (CS == DISABLED_ICACHE) || ( CS == WAIT_PENDING_TRANS) || (CS == FLUSH_ICACHE);
    always_comb
    begin
 
-      CounterChunck_NS   = CounterChunck_CS;
       flush_set_ID_ack_o = 1'b0;
-      axi_ar_len_o       = 0;
+      axi_ar_len_o       = (CACHE_LINE*FETCH_DATA_WIDTH)/AXI_DATA-1;
+
 
       TAG_req_o          = '0;
       TAG_we_o           = 1'b0;
@@ -280,13 +267,14 @@ generate
       TAG_wdata_o        = {1'b1,fetch_addr_Q[TAG_MSB:TAG_LSB]};
 
       DATA_req_o         = '0;
-      
+      DATA_addr_o        = fetch_addr_i[SET_ID_MSB:SET_ID_LSB];
+      DATA_wdata_o       = axi_r_data_int;
       DATA_we_o          = 1'b0;
-      
+
 
       fetch_gnt_o             = 1'b0;
       fetch_rvalid_o          = 1'b0;
-      fetch_rdata_o           = axi_r_data_int[fetch_addr_Q[2]]; //FIXME ok for AXI 64 and 32bit INSTR
+      fetch_rdata_o           = axi_r_data_int; //FIXME ok for AXI 64 and 32bit INSTR
 
       axi_ar_valid_o            = 1'b0;
       axi_r_ready_o             = 1'b1;
@@ -300,35 +288,35 @@ generate
 
       enable_pipe             = 1'b0;
       clear_pipe              = 1'b0;
-     
+
       NS                      = CS;
       update_lfsr             = 1'b0;
 
-      //cache_is_bypassed_o     = 1'b0;
+      cache_is_bypassed_o     = 1'b0;
       cache_is_flushed_o      = 1'b0;
 
       counter_FLUSH_NS        = counter_FLUSH_CS;
 
+      flush_set_ID_ack_o      = 1'b0;
+
       case(CS)
 
-
-         DISABLED_ICACHE: 
+         DISABLED_ICACHE:
          begin
-            axi_ar_len_o        = 0; // Single beat trans
+            axi_ar_len_o        = 1; // Single beat trans
+            counter_FLUSH_NS    = '0;
             flush_set_ID_ack_o  = 1'b1;
             clear_pipe          = 1'b1;
-            //cache_is_bypassed_o = 1'b1;
+            cache_is_bypassed_o = 1'b1;
             cache_is_flushed_o  = 1'b1;
-            fetch_rdata_o       = axi_r_data_int[fetch_addr_Q[2]];
+            fetch_rdata_o       = axi_r_data_int;
             fetch_rvalid_o      = axi_r_valid_i & axi_r_last_i; // Must a single beat transaction
-
-            enable_pipe         = fetch_req_i;
 
             if(bypass_icache_i == 1'b1) // Already Bypassed
             begin
                NS = DISABLED_ICACHE;
                axi_ar_valid_o  = fetch_req_i;
-               fetch_gnt_o     = axi_ar_ready_i;
+               fetch_gnt_o     = axi_ar_ready_i & fetch_req_i;
                axi_ar_addr_o   = fetch_addr_i;
             end
             else
@@ -344,10 +332,10 @@ generate
          begin
             flush_set_ID_ack_o    = 1'b1;
             clear_pipe            = 1'b1;
-            //cache_is_bypassed_o   = 1'b1;
+            cache_is_bypassed_o   = 1'b1;
             cache_is_flushed_o    = 1'b1;
-            
-            fetch_rdata_o         = axi_r_data_int[fetch_addr_Q[2]];
+
+            fetch_rdata_o         = axi_r_data_int;
             fetch_rvalid_o        = axi_r_valid_i & axi_r_last_i; // Must a single beat transaction
 
             fetch_gnt_o           = 1'b0;
@@ -367,7 +355,6 @@ generate
          begin
             fetch_gnt_o           = 1'b0;
             flush_set_ID_ack_o    = 1'b1;
-            //cache_is_bypassed_o   = 1'b0;
 
             if(counter_FLUSH_CS < 2**SCM_TAG_ADDR_WIDTH-1)
             begin
@@ -377,6 +364,7 @@ generate
             else
             begin
                NS = OPERATIVE;
+               cache_is_flushed_o  = 1'b1;
                counter_FLUSH_NS = '0;
             end
 
@@ -400,14 +388,14 @@ generate
          end //~FLUSH_SET_ID
 
 
-         OPERATIVE: 
+         OPERATIVE:
          begin
-            //cache_is_bypassed_o  = 1'b0;
+            cache_is_bypassed_o  = 1'b0;
             cache_is_flushed_o   = 1'b0;
             flush_set_ID_ack_o   = 1'b0;
-            
+
             fetch_gnt_o          = fetch_req_i & ~(bypass_icache_i | flush_icache_i | flush_set_ID_req_i );
-            
+
 
             if(bypass_icache_i | flush_icache_i | flush_set_ID_req_i ) // first check if the previous fetch has a miss or HIT
             begin
@@ -437,7 +425,7 @@ generate
                       fetch_rdata_o   = DATA_rdata_i[HIT_WAY];
 
                    end
-                   else 
+                   else
                    begin : MISS_BYP
                       // asks for the last refill, then goes into DISABLED state
                       NS               = REQ_REFILL;
@@ -465,8 +453,8 @@ generate
             end
             else // NO Bypass request
             begin
-               enable_pipe          = fetch_req_i;  
-               
+               enable_pipe          = fetch_req_i;
+
                //Read the DATA nd TAG
                TAG_req_o   = {NB_WAYS{fetch_req_i}};
                TAG_we_o    = 1'b0;
@@ -474,7 +462,8 @@ generate
 
                DATA_req_o  = {NB_WAYS{fetch_req_i}};
                DATA_we_o   = 1'b0;
-          
+               DATA_addr_o = fetch_addr_i[SET_ID_MSB:SET_ID_LSB];
+
                if(fetch_req_Q)
                begin
                    if(|way_match)
@@ -487,7 +476,7 @@ generate
                       fetch_rvalid_o  = 1'b1;
                       fetch_rdata_o   = DATA_rdata_i[HIT_WAY];
                    end
-                   else 
+                   else
                    begin : MISS
                       save_pipe_status = 1'b1;
                       enable_pipe      = 1'b0;
@@ -504,20 +493,19 @@ generate
          end
 
 
-         REQ_REFILL: 
+         REQ_REFILL:
          begin
-            //cache_is_bypassed_o  = 1'b0;
+            cache_is_bypassed_o  = 1'b0;
             cache_is_flushed_o   = 1'b0;
             flush_set_ID_ack_o   = 1'b0;
 
             enable_pipe      = 1'b0;
             axi_ar_valid_o   = 1'b1;
-            axi_ar_addr_o    = {fetch_addr_Q[FETCH_ADDR_WIDTH-1:($clog2(CACHE_LINE*FETCH_DATA_WIDTH)-3)], {($clog2(CACHE_LINE*FETCH_DATA_WIDTH)-3){1'b0}} };
-            axi_ar_len_o     = (CACHE_LINE*FETCH_DATA_WIDTH)/AXI_DATA-1;
+            axi_ar_addr_o    = fetch_addr_Q;
 
             save_fetch_way   = 1'b1;
-            // This check is postponed because thag Check is complex. better to do 
-            // one cycle later; 
+            // This check is postponed because thag Check is complex. better to do
+            // one cycle later;
             if(|way_valid_Q) // all the lines are valid, invalidate one random line
             begin
                   fetch_way_int = random_way;
@@ -533,7 +521,6 @@ generate
             if(axi_ar_ready_i)
             begin
                NS = WAIT_REFILL_DONE;
-               CounterChunck_NS = '0;
             end
             else
             begin
@@ -543,57 +530,36 @@ generate
          end
 
 
-         WAIT_REFILL_DONE: 
+         WAIT_REFILL_DONE:
          begin
-            //cache_is_bypassed_o  = 1'b0;
+            cache_is_bypassed_o  = 1'b0;
             cache_is_flushed_o   = 1'b0;
             flush_set_ID_ack_o   = 1'b0;
 
-            axi_r_ready_o = 1'b1;
+            fetch_rdata_o   = axi_r_data_int;
+            fetch_rvalid_o  = axi_r_valid_i & axi_r_last_i;
 
-            if(axi_r_valid_i)
-            begin
+            DATA_req_o      = fetch_way_Q & {NB_WAYS{axi_r_valid_i & axi_r_last_i}};
+            DATA_addr_o     = fetch_addr_Q[SET_ID_MSB:SET_ID_LSB];
+            DATA_wdata_o    = axi_r_data_int;
+            DATA_we_o       = 1'b1;
 
-               if(deliver_chunk)
-               begin
-                  fetch_rvalid_o = 1'b1;
-                  fetch_rdata_o  = axi_r_data_int[fetch_addr_Q[2]];
-               end
-               else
-               begin
-                  fetch_rvalid_o          = 1'b0;
-                  fetch_rdata_o           = 32'hDEADBAAB;
-               end
+            TAG_req_o       = fetch_way_Q & {NB_WAYS{axi_r_valid_i & axi_r_last_i}};
+            TAG_we_o        = 1'b1;
+            TAG_addr_o      = fetch_addr_Q[SET_ID_MSB:SET_ID_LSB];
+            TAG_wdata_o     = {1'b1,fetch_addr_Q[TAG_MSB:TAG_LSB]};
 
-               DATA_req_o   = fetch_way_Q;
 
-               DATA_we_o    = 1'b1;
-
-               if(axi_r_last_i)
+            if(axi_r_valid_i & axi_r_last_i)
                begin
                  clear_pipe        = 1'b1;
                  NS = OPERATIVE;
-                 //fetch_rdata_o     = axi_r_data_i[fetch_addr_Q[2]];
-
-                 TAG_req_o       = fetch_way_Q;
-                 TAG_we_o        = 1'b1;
-                 TAG_addr_o      = fetch_addr_Q[SET_ID_MSB:SET_ID_LSB];
-                 TAG_wdata_o     = {1'b1,fetch_addr_Q[TAG_MSB:TAG_LSB]};
-
-                 CounterChunck_NS = '0;
                end
                else
                begin
                   NS = WAIT_REFILL_DONE;
-                  CounterChunck_NS = CounterChunck_CS + 1'b1;
                end
-            end
-            else
-            begin
-               NS = WAIT_REFILL_DONE;
-               CounterChunck_NS = CounterChunck_CS;
-            end
-         end
+         end // case: WAIT_REFILL_DONE
 
          default:
          begin
@@ -618,10 +584,10 @@ generate
       )
       i_LFSR_Way_Repl
       (
-         .data_OH_o      ( random_way  ), 
+         .data_OH_o      ( random_way  ),
          .data_BIN_o     (             ),
-         .enable_i       ( update_lfsr ),      
-         .clk            ( clk         ),           
+         .enable_i       ( update_lfsr ),
+         .clk            ( clk         ),
          .rst_n          ( rst_n       )
       );
    end

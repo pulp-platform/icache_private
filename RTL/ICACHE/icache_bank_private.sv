@@ -35,11 +35,11 @@ module icache_bank_private
    output  logic [ 2:0]                                  axi_master_arsize_o,   //size of each transfer in burst
    output  logic [ 1:0]                                  axi_master_arburst_o,  //for bursts>1, accept only incr burst=01
    output  logic                                         axi_master_arlock_o,   //only normal access supported axs_awlock=00
-   output  logic [ 3:0]                                  axi_master_arcache_o, 
+   output  logic [ 3:0]                                  axi_master_arcache_o,
    output  logic [ 2:0]                                  axi_master_arprot_o,
    output  logic [ 3:0]                                  axi_master_arregion_o, //
    output  logic [ AXI_USER-1:0]                         axi_master_aruser_o,   //
-   output  logic [ 3:0]                                  axi_master_arqos_o,    //  
+   output  logic [ 3:0]                                  axi_master_arqos_o,    //
    output  logic                                         axi_master_arvalid_o,  //master addr valid
    input logic                                           axi_master_arready_i,  //slave ready to accept
    // ---------------------------------------------------------------
@@ -119,23 +119,23 @@ module icache_bank_private
 
    logic [AXI_ID-1:0]                            axi_master_arid_int;
    logic [AXI_ADDR-1:0]                          axi_master_araddr_int;
-   logic [ 7:0]                                  axi_master_arlen_int;    
-   logic [ 2:0]                                  axi_master_arsize_int;   
-   logic [ 1:0]                                  axi_master_arburst_int;  
-   logic                                         axi_master_arlock_int;   
-   logic [ 3:0]                                  axi_master_arcache_int; 
+   logic [ 7:0]                                  axi_master_arlen_int;
+   logic [ 2:0]                                  axi_master_arsize_int;
+   logic [ 1:0]                                  axi_master_arburst_int;
+   logic                                         axi_master_arlock_int;
+   logic [ 3:0]                                  axi_master_arcache_int;
    logic [ 2:0]                                  axi_master_arprot_int;
-   logic [ 3:0]                                  axi_master_arregion_int; 
-   logic [ AXI_USER-1:0]                         axi_master_aruser_int;   
-   logic [ 3:0]                                  axi_master_arqos_int;    
-   logic                                         axi_master_arvalid_int;  
-   logic                                         axi_master_arready_int;  
+   logic [ 3:0]                                  axi_master_arregion_int;
+   logic [ AXI_USER-1:0]                         axi_master_aruser_int;
+   logic [ 3:0]                                  axi_master_arqos_int;
+   logic                                         axi_master_arvalid_int;
+   logic                                         axi_master_arready_int;
 
 
    logic [AXI_ID-1:0]                            axi_master_rid_int;
    logic [AXI_DATA-1:0]                          axi_master_rdata_int;
    logic [1:0]                                   axi_master_rresp_int;
-   logic                                         axi_master_rlast_int; 
+   logic                                         axi_master_rlast_int;
    logic [AXI_USER-1:0]                          axi_master_ruser_int;
    logic                                         axi_master_rvalid_int;
    logic                                         axi_master_rready_int;
@@ -144,10 +144,10 @@ module icache_bank_private
 
    // interface with READ PORT --> SCM DATA
    logic [NB_WAYS-1:0]                           DATA_req_int;
-   logic                                         DATA_we_int;   
+   logic                                         DATA_we_int;
    logic [SCM_DATA_ADDR_WIDTH-1:0]               DATA_addr_int;
    logic [NB_WAYS-1:0][DATA_WIDTH-1:0]           DATA_rdata_int;
-   logic [AXI_DATA-1:0]                          DATA_wdata_int;
+   logic [DATA_WIDTH-1:0]                        DATA_wdata_int;
 
    // interface with READ PORT --> SCM TAG
    logic [NB_WAYS-1:0]                           TAG_req_int;
@@ -155,12 +155,18 @@ module icache_bank_private
    logic [SCM_TAG_ADDR_WIDTH-1:0]                TAG_addr_int;
    logic [NB_WAYS-1:0][TAG_WIDTH-1:0]            TAG_rdata_int;
    logic [TAG_WIDTH-1:0]                         TAG_wdata_int;
-       
 
-   // ██╗ ██████╗ █████╗  ██████╗██╗  ██╗███████╗         ██████╗████████╗██████╗ ██╗     
-   // ██║██╔════╝██╔══██╗██╔════╝██║  ██║██╔════╝        ██╔════╝╚══██╔══╝██╔══██╗██║     
-   // ██║██║     ███████║██║     ███████║█████╗          ██║        ██║   ██████╔╝██║     
-   // ██║██║     ██╔══██║██║     ██╔══██║██╔══╝          ██║        ██║   ██╔══██╗██║     
+
+   logic [NB_WAYS-1:0]                           DATA_read_enable;
+   logic [NB_WAYS-1:0]                           DATA_write_enable;
+
+   logic [NB_WAYS-1:0]                           TAG_read_enable;
+   logic [NB_WAYS-1:0]                           TAG_write_enable;
+
+   // ██╗ ██████╗ █████╗  ██████╗██╗  ██╗███████╗         ██████╗████████╗██████╗ ██╗
+   // ██║██╔════╝██╔══██╗██╔════╝██║  ██║██╔════╝        ██╔════╝╚══██╔══╝██╔══██╗██║
+   // ██║██║     ███████║██║     ███████║█████╗          ██║        ██║   ██████╔╝██║
+   // ██║██║     ██╔══██║██║     ██╔══██║██╔══╝          ██║        ██║   ██╔══██╗██║
    // ██║╚██████╗██║  ██║╚██████╗██║  ██║███████╗███████╗╚██████╗   ██║   ██║  ██║███████╗
    // ╚═╝ ╚═════╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝╚══════╝╚══════╝ ╚═════╝   ╚═╝   ╚═╝  ╚═╝╚══════╝
    icache_controller_private
@@ -211,17 +217,17 @@ module icache_bank_private
 
       // interface with READ PORT --> SCM DATA
       .DATA_req_o               ( DATA_req_int         ),
-      .DATA_we_o                ( DATA_we_int          ),   
+      .DATA_we_o                ( DATA_we_int          ),
       .DATA_addr_o              ( DATA_addr_int        ),
       .DATA_rdata_i             ( DATA_rdata_int       ),
       .DATA_wdata_o             ( DATA_wdata_int       ),
 
       // interface with READ PORT --> SCM TAG
-      .TAG_req_o                ( TAG_req_int          ),   
+      .TAG_req_o                ( TAG_req_int          ),
       .TAG_addr_o               ( TAG_addr_int         ),
       .TAG_rdata_i              ( TAG_rdata_int        ),
       .TAG_wdata_o              ( TAG_wdata_int        ),
-      .TAG_we_o                 ( TAG_we_int           ), 
+      .TAG_we_o                 ( TAG_we_int           ),
 
       // Interface to cache_controller_to_axi
       .axi_ar_valid_o           ( axi_master_arvalid_int ),
@@ -243,238 +249,137 @@ module icache_bank_private
 
 
 
-genvar i;
-generate
+      genvar i;
+      generate
+
       // ████████╗ █████╗  ██████╗         ██████╗  █████╗ ███╗   ██╗██╗  ██╗
       // ╚══██╔══╝██╔══██╗██╔════╝         ██╔══██╗██╔══██╗████╗  ██║██║ ██╔╝
-      //    ██║   ███████║██║  ███╗        ██████╔╝███████║██╔██╗ ██║█████╔╝ 
-      //    ██║   ██╔══██║██║   ██║        ██╔══██╗██╔══██║██║╚██╗██║██╔═██╗ 
+      //    ██║   ███████║██║  ███╗        ██████╔╝███████║██╔██╗ ██║█████╔╝
+      //    ██║   ██╔══██║██║   ██║        ██╔══██╗██╔══██║██║╚██╗██║██╔═██╗
       //    ██║   ██║  ██║╚██████╔╝███████╗██████╔╝██║  ██║██║ ╚████║██║  ██╗
       //    ╚═╝   ╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝  ╚═╝
       for(i=0; i<NB_WAYS; i++)
       begin : _TAG_WAY_
-         case(MEM_TYPE)
-            `ifdef PULP_FPGA_EMUL
+         assign TAG_read_enable[i]  = TAG_req_int[i] & ~TAG_we_int;
+         assign TAG_write_enable[i] = TAG_req_int[i] &  TAG_we_int;
 
-                     "SCM" : 
-                     begin : SCM_TAG_BANK
 
-                        if(SCM_NUM_ROWS == 1)
-                        begin
-                              register_file_1r_1w_1row
-                              #(
-                                  .DATA_WIDTH    ( TAG_WIDTH           )
-                              )
-                              TAG_BANK
-                              (
-                                  .clk         ( clk                              ),
-                                  .rst_n       ( rst_n                            ),
+      `ifdef PULP_FPGA_EMUL
+         register_file_1r_1w
+      `else
+           register_file_1r_1w_test_wrap
+      `endif
+             #(
+               .ADDR_WIDTH  ( SCM_TAG_ADDR_WIDTH ),
+               .DATA_WIDTH  ( TAG_WIDTH          )
+               )
+         TAG_BANK
+           (
+            .clk         ( clk          ),
+      `ifdef PULP_FPGA_EMUL
+            .rst_n       ( rst_n        ),
+      `endif
 
-                                  .ReadEnable  ( TAG_req_int[i] & ~TAG_we_int     ),
-                                  .ReadData    ( TAG_rdata_int[i]                 ),
-                                  .WriteEnable ( TAG_req_int[i] & TAG_we_int      ),
-                                  .WriteData   ( TAG_wdata_int                    )
-                              );
-                        end
-                        else
-                        begin
-                              register_file_1r_1w
-                              #(
-                                  .ADDR_WIDTH    ( SCM_TAG_ADDR_WIDTH  ),
-                                  .DATA_WIDTH    ( TAG_WIDTH           )
-                              )
-                              TAG_BANK
-                              (
-                                  .clk         ( clk                              ),
-                                  .rst_n       ( rst_n                            ),
+            // Read port
+            .ReadEnable  ( TAG_read_enable[i]  ),
+            .ReadAddr    ( TAG_addr_int        ),
+            .ReadData    ( TAG_rdata_int[i]    ),
 
-                                  .ReadEnable  ( TAG_req_int[i] & ~TAG_we_int     ),
-                                  .ReadAddr    ( TAG_addr_int                     ),
-                                  .ReadData    ( TAG_rdata_int[i]                 ),
-                                  .WriteEnable ( TAG_req_int[i] & TAG_we_int      ),
-                                  .WriteAddr   ( TAG_addr_int                     ),
-                                  .WriteData   ( TAG_wdata_int                    )
-                              );
-                        end
+            // Write port
+            .WriteEnable ( TAG_write_enable[i] ),
+            .WriteAddr   ( TAG_addr_int        ),
+            .WriteData   ( TAG_wdata_int       )
+      `ifndef PULP_FPGA_EMUL
+            ,
+            // BIST ENABLE
+            .BIST        ( 1'b0                ), // PLEASE CONNECT ME;
 
-                  end            
-            `else
-
-            "SCM" : 
-            begin : SCM_TAG_BANK
-               if(SCM_NUM_ROWS == 1)
-               begin
-                     register_file_1r_1w_1row
-                     #(
-                                  .DATA_WIDTH    ( TAG_WIDTH           )
-                     )
-                     TAG_BANK
-                     (
-                         .clk         ( clk                              ),
-                         //.test_en_i   ( test_en_i                        ),
-                         //.rst_n     ( rst_n                            ),
-
-                         .ReadEnable  ( TAG_req_int[i] & ~TAG_we_int     ),
-                         .ReadData    ( TAG_rdata_int[i]                 ),
-                         .WriteEnable ( TAG_req_int[i] & TAG_we_int      ),
-                         .WriteData   ( TAG_wdata_int                    )
-                     );
-               end
-               else
-               begin
-                     register_file_1r_1w
-                     #(
-                         .ADDR_WIDTH    ( SCM_TAG_ADDR_WIDTH  ),
-                         .DATA_WIDTH    ( TAG_WIDTH           )
-                     )
-                     TAG_BANK
-                     (
-                         .clk         ( clk                              ),
-                         //.test_en_i   ( test_en_i                        ),
-                         //.rst_n       ( rst_n                            ),
-
-                         .ReadEnable  ( TAG_req_int[i] & ~TAG_we_int     ),
-                         .ReadAddr    ( TAG_addr_int                     ),
-                         .ReadData    ( TAG_rdata_int[i]                 ),
-                         .WriteEnable ( TAG_req_int[i] & TAG_we_int      ),
-                         .WriteAddr   ( TAG_addr_int                     ),
-                         .WriteData   ( TAG_wdata_int                    )
-                     );
-               end
-
-            end
-
-            `endif
-            default:
-            begin : NO_TAG_MEM
-
-            end
-         endcase // MEM_TYPE
+            // BIST ports
+            .CSN_T       (                     ), // PLEASE CONNECT ME; Synthesis will remove me if unconnected
+            .WEN_T       (                     ), // PLEASE CONNECT ME; Synthesis will remove me if unconnected
+            .A_T         (                     ), // PLEASE CONNECT ME; Synthesis will remove me if unconnected
+            .D_T         (                     ), // PLEASE CONNECT ME; Synthesis will remove me if unconnected
+            .Q_T         (                     )
+      `endif
+            );
       end
 
       // ██████╗  █████╗ ████████╗ █████╗         ██████╗  █████╗ ███╗   ██╗██╗  ██╗
       // ██╔══██╗██╔══██╗╚══██╔══╝██╔══██╗        ██╔══██╗██╔══██╗████╗  ██║██║ ██╔╝
-      // ██║  ██║███████║   ██║   ███████║        ██████╔╝███████║██╔██╗ ██║█████╔╝ 
-      // ██║  ██║██╔══██║   ██║   ██╔══██║        ██╔══██╗██╔══██║██║╚██╗██║██╔═██╗ 
+      // ██║  ██║███████║   ██║   ███████║        ██████╔╝███████║██╔██╗ ██║█████╔╝
+      // ██║  ██║██╔══██║   ██║   ██╔══██║        ██╔══██╗██╔══██║██║╚██╗██║██╔═██╗
       // ██████╔╝██║  ██║   ██║   ██║  ██║███████╗██████╔╝██║  ██║██║ ╚████║██║  ██╗
       // ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚═╝  ╚═╝╚══════╝╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝  ╚═╝
+
+
       for(i=0; i<NB_WAYS; i++)
       begin : _DATA_WAY_
+         assign DATA_read_enable[i]  = DATA_req_int[i] & ~DATA_we_int;
+         assign DATA_write_enable[i] = DATA_req_int[i] & DATA_we_int;
 
-         case(MEM_TYPE)
+     `ifdef PULP_FPGA_EMUL
+         register_file_1r_1w
+     `else
+         register_file_1r_1w_test_wrap
+     `endif
+         #(
+           .ADDR_WIDTH  ( SCM_DATA_ADDR_WIDTH ),
+           .DATA_WIDTH  ( DATA_WIDTH         )
+           )
+           DATA_BANK
+           (
+            .clk         ( clk          ),
+     `ifdef PULP_FPGA_EMUL
+            .rst_n       ( rst_n        ),
+     `endif
 
-            `ifdef PULP_FPGA_EMUL
-            "SCM" : 
-            begin : SCM_DATA_BANK
-               register_file_1w_64b_1r_32b
-               #(
-                   .WADDR_WIDTH   ( SCM_DATA_ADDR_WIDTH-1), //= 5,
-                   .WDATA_WIDTH   ( AXI_DATA             ), //= 64,
-                   .RDATA_WIDTH   ( DATA_WIDTH           ), //= 32,
-                   .RADDR_WIDTH   ( SCM_DATA_ADDR_WIDTH  ), //= WADDR_WIDTH+$clog2(WDATA_WIDTH/RDATA_WIDTH),
-                   .W_N_ROWS      ( $clog2(SCM_NUM_ROWS)+$clog2(CACHE_LINE)     )
-               )
-               DATA_BANK
-               (
-                   .clk         ( clk                                    ),
-                   .rst_n       ( rst_n                                  ),
+            // Read port
+            .ReadEnable  ( DATA_read_enable[i]   ),
+            .ReadAddr    ( DATA_addr_int         ),
+            .ReadData    ( DATA_rdata_int[i]     ),
 
-                   .ReadEnable  ( DATA_req_int[i] & ~DATA_we_int         ),
-                   .ReadAddr    ( DATA_addr_int                          ),
-                   .ReadData    ( DATA_rdata_int[i]                      ),
+            // Write port
+            .WriteEnable ( DATA_write_enable[i]  ),
+            .WriteAddr   ( DATA_addr_int         ),
+            .WriteData   ( DATA_wdata_int        )
+     `ifndef PULP_FPGA_EMUL
+            ,
+            // BIST ENABLE
+            .BIST        ( 1'b0                ), // PLEASE CONNECT ME;
 
-                   .WriteEnable ( DATA_req_int[i] & DATA_we_int          ),
-                   .WriteAddr   ( DATA_addr_int[SCM_DATA_ADDR_WIDTH-1:1] ),
-                   .WriteData   ( DATA_wdata_int                         )
-               );
-            end
-            `else
-            "SCM" : 
-            begin : SCM_DATA_BANK
-               if( $clog2(SCM_NUM_ROWS)+$clog2(CACHE_LINE) == 1 )
-               begin
-                     register_file_1w_64b_multi_port_read_32b_1row
-                     #(
-                         .WADDR_WIDTH   ( SCM_DATA_ADDR_WIDTH-1), //= 5,
-                         .WDATA_WIDTH   ( AXI_DATA             ), //= 64,
-                         .RDATA_WIDTH   ( DATA_WIDTH           ), //= 32,
-                         .RADDR_WIDTH   ( SCM_DATA_ADDR_WIDTH  ), //= WADDR_WIDTH+$clog2(WDATA_WIDTH/RDATA_WIDTH),
-                         .N_READ        ( 1                    ),
-                         .N_WRITE       ( 1                    )
-                     )
-                     DATA_BANK
-                     (
-                         .clk         ( clk                                    ),
-                         //.rst_n       ( rst_n                                  ),
-
-                         .ReadEnable  ( DATA_req_int[i] & ~DATA_we_int         ),
-                         .ReadData    ( DATA_rdata_int[i]                      ),
-
-                         .WriteEnable ( DATA_req_int[i] & DATA_we_int          ),
-                         .WriteData   ( DATA_wdata_int                         )
-                     );
-               end
-               else
-               begin
-                     register_file_1w_64b_multi_port_read_32b
-                     #(
-                         .WADDR_WIDTH   ( SCM_DATA_ADDR_WIDTH-1), //= 5,
-                         .WDATA_WIDTH   ( AXI_DATA             ), //= 64,
-                         .RDATA_WIDTH   ( DATA_WIDTH           ), //= 32,
-                         .RADDR_WIDTH   ( SCM_DATA_ADDR_WIDTH  ), //= WADDR_WIDTH+$clog2(WDATA_WIDTH/RDATA_WIDTH),
-                         .N_READ        ( 1                    ),
-                         .N_WRITE       ( 1                    )
-                     )
-                     DATA_BANK
-                     (
-                         .clk         ( clk                                    ),
-                         //.rst_n       ( rst_n                                  ),
-
-                         .ReadEnable  ( DATA_req_int[i] & ~DATA_we_int         ),
-                         .ReadAddr    ( DATA_addr_int                          ),
-                         .ReadData    ( DATA_rdata_int[i]                      ),
-
-                         .WriteEnable ( DATA_req_int[i] & DATA_we_int          ),
-                         .WriteAddr   ( DATA_addr_int[SCM_DATA_ADDR_WIDTH-1:1] ),
-                         .WriteData   ( DATA_wdata_int                         )
-                     );
-               end
-
-            end
-	   
-            `endif
-
-            default:
-            begin : NO_DATA_MEM
-
-            end
-         endcase // MEM_TYPE
+            // BIST ports
+            .CSN_T       (                     ), // PLEASE CONNECT ME; Synthesis will remove me if unconnected
+            .WEN_T       (                     ), // PLEASE CONNECT ME; Synthesis will remove me if unconnected
+            .A_T         (                     ), // PLEASE CONNECT ME; Synthesis will remove me if unconnected
+            .D_T         (                     ), // PLEASE CONNECT ME; Synthesis will remove me if unconnected
+            .Q_T         (                     )
+     `endif
+            );
       end
-
 endgenerate
 
 
 
-   assign axi_master_arid_int     = {AXI_ID{1'b0}};  
-   assign axi_master_arsize_int   = 3'b010;   
-   assign axi_master_arburst_int  = 2'b00;  
-   assign axi_master_arlock_int   = 1'b0;   
-   assign axi_master_arcache_int  = 4'b0000; 
+   assign axi_master_arid_int     = {AXI_ID{1'b0}};
+   assign axi_master_arsize_int   = 3'b011;   //64 bits -> 8 bytes
+   assign axi_master_arburst_int  = 2'b01;    //INCR
+   assign axi_master_arlock_int   = 1'b0;
+   assign axi_master_arcache_int  = 4'b0000;
    assign axi_master_arprot_int   = 3'b000;
-   assign axi_master_arregion_int = 4'b0000; 
+   assign axi_master_arregion_int = 4'b0000;
    assign axi_master_aruser_int   = {AXI_USER{1'b0}};
-   assign axi_master_arqos_int    = 4'b0000;     
+   assign axi_master_arqos_int    = 4'b0000;
 
 
    //  █████╗ ██╗  ██╗██╗         █████╗ ██████╗         ██████╗ ██╗   ██╗███████╗███████╗
    // ██╔══██╗╚██╗██╔╝██║        ██╔══██╗██╔══██╗        ██╔══██╗██║   ██║██╔════╝██╔════╝
-   // ███████║ ╚███╔╝ ██║        ███████║██████╔╝        ██████╔╝██║   ██║█████╗  █████╗  
-   // ██╔══██║ ██╔██╗ ██║        ██╔══██║██╔══██╗        ██╔══██╗██║   ██║██╔══╝  ██╔══╝  
-   // ██║  ██║██╔╝ ██╗██║███████╗██║  ██║██║  ██║███████╗██████╔╝╚██████╔╝██║     ██║     
-   // ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚═════╝  ╚═════╝ ╚═╝     ╚═╝     
+   // ███████║ ╚███╔╝ ██║        ███████║██████╔╝        ██████╔╝██║   ██║█████╗  █████╗
+   // ██╔══██║ ██╔██╗ ██║        ██╔══██║██╔══██╗        ██╔══██╗██║   ██║██╔══╝  ██╔══╝
+   // ██║  ██║██╔╝ ██╗██║███████╗██║  ██║██║  ██║███████╗██████╔╝╚██████╔╝██║     ██║
+   // ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚═════╝  ╚═════╝ ╚═╝     ╚═╝
    axi_ar_buffer
    #(
-      .ID_WIDTH     ( AXI_ID      ), 
+      .ID_WIDTH     ( AXI_ID      ),
       .ADDR_WIDTH   ( AXI_ADDR    ),
       .USER_WIDTH   ( AXI_USER    ),
       .BUFFER_DEPTH ( 2           )
@@ -516,10 +421,10 @@ endgenerate
 
    //  █████╗ ██╗  ██╗██╗        ██████╗         ██████╗ ██╗   ██╗███████╗███████╗
    // ██╔══██╗╚██╗██╔╝██║        ██╔══██╗        ██╔══██╗██║   ██║██╔════╝██╔════╝
-   // ███████║ ╚███╔╝ ██║        ██████╔╝        ██████╔╝██║   ██║█████╗  █████╗  
-   // ██╔══██║ ██╔██╗ ██║        ██╔══██╗        ██╔══██╗██║   ██║██╔══╝  ██╔══╝  
-   // ██║  ██║██╔╝ ██╗██║███████╗██║  ██║███████╗██████╔╝╚██████╔╝██║     ██║     
-   // ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝╚══════╝╚═╝  ╚═╝╚══════╝╚═════╝  ╚═════╝ ╚═╝     ╚═╝     
+   // ███████║ ╚███╔╝ ██║        ██████╔╝        ██████╔╝██║   ██║█████╗  █████╗
+   // ██╔══██║ ██╔██╗ ██║        ██╔══██╗        ██╔══██╗██║   ██║██╔══╝  ██╔══╝
+   // ██║  ██║██╔╝ ██╗██║███████╗██║  ██║███████╗██████╔╝╚██████╔╝██║     ██║
+   // ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝╚══════╝╚═╝  ╚═╝╚══════╝╚═════╝  ╚═════╝ ╚═╝     ╚═╝
    axi_r_buffer
       #(
       .ID_WIDTH       ( AXI_ID                             ),
@@ -563,7 +468,7 @@ endgenerate
    assign axi_master_awuser_o   = {AXI_USER{1'b0}};
    assign axi_master_awqos_o    = 4'b0000;
    assign axi_master_awvalid_o  = 1'b0;
-   
+
    assign axi_master_wdata_o    = {AXI_DATA{1'b0}};
    assign axi_master_wstrb_o    = {AXI_DATA/8{1'b0}};;
    assign axi_master_wlast_o    = 1'b0;
