@@ -1,0 +1,15 @@
+package:
+  name: icache_private
+  authors: []
+
+dependencies:
+  common_cells: { git: "git@github.com:pulp-platform/common_cells.git", version: 1.13.1 }
+  scm: { git: "git@github.com:pulp-platform/scm.git", version: 1.0.1 }
+  axi_slice: { git: "git@github.com:pulp-platform/axi_slice.git", version: 1.1.4 }
+  axi_node: { git: "git@github.com:pulp-platform/axi_node.git", version: 1.1.4 }
+  # Also depends on interfaces from hier-icache
+
+sources:
+  - TOP/icache_top_private.sv
+  - RTL/ICACHE/icache_bank_private.sv
+  - RTL/ICACHE/icache_controller_private.sv
