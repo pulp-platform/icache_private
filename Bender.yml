@@ -1,6 +1,7 @@
 package:
   name: icache_private
-  authors: []
+  authors: 
+    - "Igor Loi <igor.loi@unibo.it>"
 
 dependencies:
   common_cells: { git: "git@github.com:pulp-platform/common_cells.git", version: 1.13.1 }
