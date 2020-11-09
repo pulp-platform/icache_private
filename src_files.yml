@@ -3,7 +3,7 @@ icache-private:
     ../../rtl/includes,
   ]
   files: [
-    TOP/icache_top_private.sv,
-    RTL/ICACHE/icache_bank_private.sv,
     RTL/ICACHE/icache_controller_private.sv,
+    RTL/ICACHE/icache_bank_private.sv,
+    TOP/icache_top_private.sv,
   ]
