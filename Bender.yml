@@ -1,0 +1,22 @@
+package:
+  name: icache_private
+  authors: 
+    - "Igor Loi <igor.loi@unibo.it>"
+
+dependencies:
+  common_cells: { git: "git@github.com:pulp-platform/common_cells.git", version: 1.13.1 }
+  scm: { git: "git@github.com:pulp-platform/scm.git", version: 1.0.1 }
+  axi_slice: { git: "git@github.com:pulp-platform/axi_slice.git", version: 1.1.4 } # deprecated, replaced by axi_cut (in axi repo)
+  axi_node: { git: "git@github.com:pulp-platform/axi_node.git", version: 1.1.4 } # deprecated, replaced by axi_xbar (in axi repo)
+  # Also depends on interfaces from hier-icache
+
+sources:
+    # Source files grouped in levels. Files in level 0 have no dependencies on files in this
+    # package. Files in level 1 only depend on files in level 0, files in level 2 on files in
+    # levels 1 and 0, etc. Files within a level are ordered alphabetically.
+    # Level 0
+  - RTL/ICACHE/icache_controller_private.sv
+    # Level 1
+  - RTL/ICACHE/icache_bank_private.sv
+    # Level 2
+  - TOP/icache_top_private.sv
